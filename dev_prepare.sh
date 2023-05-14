@@ -3,6 +3,7 @@
 if [ $# -ne 1 ]; then
     echo "Need the release tag to work on."
     echo -e "For example: \n\t0.10.1"
+    exit
 fi
 
 source ./functions.sh

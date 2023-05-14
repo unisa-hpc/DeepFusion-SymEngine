@@ -45,7 +45,7 @@ patch_all () {
     local crnt_dir=$(pwd)
     cd "$1" || return 1
     echo "$(pwd)"
-    patch -i "${crnt_dir}/symengine-${dest_version}.diff" -p1
+    patch -i "${crnt_dir}/symengine-${dest_version}.diff" -p2
     cd "$crnt_dir" || return 1
     echo 'Pathing has been done.'
 }
