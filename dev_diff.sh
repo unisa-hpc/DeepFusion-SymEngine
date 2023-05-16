@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $# -ne 1 ]; then
-    echo "Need the path to the directory without *-path"
+    echo "Need the path to the directory without *-patch"
     echo -e "For example: \n\t$ sh dev_diff.sh workdir/symengine-0.10.1"
     exit
 fi

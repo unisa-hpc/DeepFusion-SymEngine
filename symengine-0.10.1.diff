@@ -1,6 +1,6 @@
 diff -ur workdir/symengine-0.10.1-patched/symengine/basic.cpp workdir/symengine-0.10.1/symengine/basic.cpp
 --- workdir/symengine-0.10.1-patched/symengine/basic.cpp	2023-03-23 20:11:51.000000000 +0330
-+++ workdir/symengine-0.10.1/symengine/basic.cpp	2023-05-14 00:44:36.604634000 +0330
++++ workdir/symengine-0.10.1/symengine/basic.cpp	2023-05-16 18:24:19.333176326 +0330
 @@ -5,6 +5,13 @@
  
  namespace SymEngine
@@ -17,7 +17,7 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/basic.cpp workdir/symengine-
  {
 diff -ur workdir/symengine-0.10.1-patched/symengine/basic.h workdir/symengine-0.10.1/symengine/basic.h
 --- workdir/symengine-0.10.1-patched/symengine/basic.h	2023-03-23 20:11:51.000000000 +0330
-+++ workdir/symengine-0.10.1/symengine/basic.h	2023-05-14 00:44:12.048128439 +0330
++++ workdir/symengine-0.10.1/symengine/basic.h	2023-05-16 18:24:19.333176326 +0330
 @@ -95,6 +95,19 @@
   */
  class Basic : public EnableRCPFromThis<Basic>
@@ -49,7 +49,16 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/basic.h workdir/symengine-0.
      virtual ~Basic() {}
 diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/symengine-0.10.1/symengine/serialize-cereal.h
 --- workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h	2023-03-23 20:11:51.000000000 +0330
-+++ workdir/symengine-0.10.1/symengine/serialize-cereal.h	2023-05-14 00:51:21.582270515 +0330
++++ workdir/symengine-0.10.1/symengine/serialize-cereal.h	2023-05-16 18:32:15.088850112 +0330
+@@ -41,7 +41,7 @@
+ template <class Archive>
+ inline void save_basic(Archive &ar, const Symbol &b)
+ {
+-    ar(b.__str__());
++    ar(b.__str__(), b.is_link());
+ }
+ template <class Archive>
+ inline void save_basic(Archive &ar, const Mul &b)
 @@ -294,6 +294,7 @@
          switch (ptr->get_type_code()) {
  #define SYMENGINE_ENUM(type, Class)                                            \
@@ -58,7 +67,21 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/s
          save_basic(ar, static_cast<const Class &>(*ptr));                      \
          break;
  #include "symengine/type_codes.inc"
-@@ -678,8 +679,12 @@
+@@ -333,8 +334,11 @@
+ RCP<const Basic> load_basic(Archive &ar, RCP<const Symbol> &)
+ {
+     std::string name;
+-    ar(name);
+-    return symbol(name);
++    bool isLink;
++    ar(name, isLink);
++    auto s = symbol(name);
++    s->set_link_flag(isLink);
++    return s;
+ }
+ template <class Archive>
+ RCP<const Basic> load_basic(Archive &ar, RCP<const Mul> &)
+@@ -678,8 +682,12 @@
              throw std::runtime_error("Cannot convert to type.");               \
          } else {                                                               \
              RCP<const Class> dummy_ptr;                                        \
@@ -71,3 +94,41 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/s
              break;                                                             \
          }                                                                      \
      }
+diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.cpp workdir/symengine-0.10.1/symengine/symbol.cpp
+--- workdir/symengine-0.10.1-patched/symengine/symbol.cpp	2023-03-23 20:11:51.000000000 +0330
++++ workdir/symengine-0.10.1/symengine/symbol.cpp	2023-05-16 18:30:11.586635130 +0330
+@@ -3,6 +3,14 @@
+ 
+ namespace SymEngine
+ {
++//! DeepFusion Patch:
++bool Symbol::is_link() const{
++    return isLink;
++}
++
++void Symbol::set_link_flag(bool flag) const{
++    isLink = flag;
++}
+ 
+ Symbol::Symbol(const std::string &name)
+     : name_{name} {SYMENGINE_ASSIGN_TYPEID()}
+diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.h workdir/symengine-0.10.1/symengine/symbol.h
+--- workdir/symengine-0.10.1-patched/symengine/symbol.h	2023-03-23 20:11:51.000000000 +0330
++++ workdir/symengine-0.10.1/symengine/symbol.h	2023-05-16 18:29:35.583628317 +0330
+@@ -17,8 +17,16 @@
+     //! name of Symbol
+     std::string name_;
+ 
++    //! DeepFusion Patch:
++    mutable bool isLink=false;
++
+ public:
+     IMPLEMENT_TYPEID(SYMENGINE_SYMBOL)
++
++    //! DeepFusion Patch:
++    bool is_link() const;
++    void set_link_flag(bool flag) const;
++
+     //! Symbol Constructor
+     explicit Symbol(const std::string &name);
+     //! \return Size of the hash
