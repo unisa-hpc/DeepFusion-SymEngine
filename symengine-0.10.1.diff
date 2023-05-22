@@ -1,6 +1,20 @@
+Only in workdir/symengine-0.10.1: build
+diff -ur workdir/symengine-0.10.1-patched/symengine/cse.cpp workdir/symengine-0.10.1/symengine/cse.cpp
+--- workdir/symengine-0.10.1-patched/symengine/cse.cpp	2023-03-23 20:11:51.000000000 +0330
++++ workdir/symengine-0.10.1/symengine/cse.cpp	2023-05-22 18:46:35.347072213 +0330
+@@ -465,7 +465,8 @@
+     }
+     RCP<const Basic> next_symbol()
+     {
+-        RCP<const Basic> sym = symbol("x" + to_string(next_symbol_index));
++        RCP<const Symbol> sym = symbol("x" + to_string(next_symbol_index));
++        sym->set_link_flag(true);
+         next_symbol_index++;
+         if (excluded_symbols.find(sym) == excluded_symbols.end()) {
+             return sym;
 diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/symengine-0.10.1/symengine/serialize-cereal.h
 --- workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h	2023-03-23 20:11:51.000000000 +0330
-+++ workdir/symengine-0.10.1/symengine/serialize-cereal.h	2023-05-16 18:32:15.088850112 +0330
++++ workdir/symengine-0.10.1/symengine/serialize-cereal.h	2023-05-22 18:04:13.829272387 +0330
 @@ -41,7 +41,7 @@
  template <class Archive>
  inline void save_basic(Archive &ar, const Symbol &b)
@@ -10,7 +24,7 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/s
  }
  template <class Archive>
  inline void save_basic(Archive &ar, const Mul &b)
-@@ -333,8 +334,11 @@
+@@ -333,8 +333,11 @@
  RCP<const Basic> load_basic(Archive &ar, RCP<const Symbol> &)
  {
      std::string name;
@@ -26,7 +40,7 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/s
  RCP<const Basic> load_basic(Archive &ar, RCP<const Mul> &)
 diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.cpp workdir/symengine-0.10.1/symengine/symbol.cpp
 --- workdir/symengine-0.10.1-patched/symengine/symbol.cpp	2023-03-23 20:11:51.000000000 +0330
-+++ workdir/symengine-0.10.1/symengine/symbol.cpp	2023-05-16 18:30:11.586635130 +0330
++++ workdir/symengine-0.10.1/symengine/symbol.cpp	2023-05-22 18:04:13.829272387 +0330
 @@ -3,6 +3,14 @@
  
  namespace SymEngine
@@ -44,7 +58,7 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.cpp workdir/symengine
      : name_{name} {SYMENGINE_ASSIGN_TYPEID()}
 diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.h workdir/symengine-0.10.1/symengine/symbol.h
 --- workdir/symengine-0.10.1-patched/symengine/symbol.h	2023-03-23 20:11:51.000000000 +0330
-+++ workdir/symengine-0.10.1/symengine/symbol.h	2023-05-16 18:29:35.583628317 +0330
++++ workdir/symengine-0.10.1/symengine/symbol.h	2023-05-22 18:04:13.829272387 +0330
 @@ -17,8 +17,16 @@
      //! name of Symbol
      std::string name_;
