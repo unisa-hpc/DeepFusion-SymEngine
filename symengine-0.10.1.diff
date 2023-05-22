@@ -1,52 +1,3 @@
-diff -ur workdir/symengine-0.10.1-patched/symengine/basic.cpp workdir/symengine-0.10.1/symengine/basic.cpp
---- workdir/symengine-0.10.1-patched/symengine/basic.cpp	2023-03-23 20:11:51.000000000 +0330
-+++ workdir/symengine-0.10.1/symengine/basic.cpp	2023-05-16 18:24:19.333176326 +0330
-@@ -5,6 +5,13 @@
- 
- namespace SymEngine
- {
-+//! DeepFusion Patch:
-+size_t Basic::sequential_counter=0;
-+void Basic::set_sequential_counter(const size_t value){Basic::sequential_counter = value;}
-+size_t Basic::peek_sequential_counter(){return Basic::sequential_counter;}
-+size_t Basic::get_sequential_id() const{return sequential_id;}
-+void Basic::set_sequential_id(const size_t value) const{sequential_id = value;}
-+
- 
- std::string type_code_name(TypeID id)
- {
-diff -ur workdir/symengine-0.10.1-patched/symengine/basic.h workdir/symengine-0.10.1/symengine/basic.h
---- workdir/symengine-0.10.1-patched/symengine/basic.h	2023-03-23 20:11:51.000000000 +0330
-+++ workdir/symengine-0.10.1/symengine/basic.h	2023-05-16 18:24:19.333176326 +0330
-@@ -95,6 +95,19 @@
-  */
- class Basic : public EnableRCPFromThis<Basic>
- {
-+//! DeepFusion Patch:
-+protected:
-+    mutable size_t sequential_id; // Initialized by the constructor, could be modified by set_sequential_id().
-+
-+private:
-+    static size_t sequential_counter; // Initialized @basic.cpp, could be modified by set_sequential_counter() .
-+
-+public:
-+    static void set_sequential_counter(const size_t value);
-+    static size_t peek_sequential_counter();
-+    size_t get_sequential_id() const;
-+    void set_sequential_id(const size_t value) const;
-+    
- private:
- //! Private variables
- // The hash_ is defined as mutable, because its value is initialized to 0
-@@ -117,7 +130,7 @@
-     };
- #endif
-     //! Constructor
--    Basic() : hash_{0} {}
-+    Basic() : hash_{0}, sequential_id(++sequential_counter) {}
-     // Destructor must be explicitly defined as virtual here to avoid problems
-     // with undefined behavior while deallocating derived classes.
-     virtual ~Basic() {}
 diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/symengine-0.10.1/symengine/serialize-cereal.h
 --- workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h	2023-03-23 20:11:51.000000000 +0330
 +++ workdir/symengine-0.10.1/symengine/serialize-cereal.h	2023-05-16 18:32:15.088850112 +0330
@@ -59,14 +10,6 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/s
  }
  template <class Archive>
  inline void save_basic(Archive &ar, const Mul &b)
-@@ -294,6 +294,7 @@
-         switch (ptr->get_type_code()) {
- #define SYMENGINE_ENUM(type, Class)                                            \
-     case type:                                                                 \
-+        ar(ptr->get_sequential_id());                                          \
-         save_basic(ar, static_cast<const Class &>(*ptr));                      \
-         break;
- #include "symengine/type_codes.inc"
 @@ -333,8 +334,11 @@
  RCP<const Basic> load_basic(Archive &ar, RCP<const Symbol> &)
  {
@@ -81,19 +24,6 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/s
  }
  template <class Archive>
  RCP<const Basic> load_basic(Archive &ar, RCP<const Mul> &)
-@@ -678,8 +682,12 @@
-             throw std::runtime_error("Cannot convert to type.");               \
-         } else {                                                               \
-             RCP<const Class> dummy_ptr;                                        \
-+            size_t seq_id;                                                     \
-+            ar(seq_id);                                                        \
-+            if(seq_id>=Basic::peek_sequential_counter()){Basic::set_sequential_counter(seq_id+1);}\
-             ptr = rcp_static_cast<const T>(                                    \
-                 rcp_static_cast<const Basic>(load_basic(ar, dummy_ptr)));      \
-+            ptr->set_sequential_id(seq_id);                                    \
-             break;                                                             \
-         }                                                                      \
-     }
 diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.cpp workdir/symengine-0.10.1/symengine/symbol.cpp
 --- workdir/symengine-0.10.1-patched/symengine/symbol.cpp	2023-03-23 20:11:51.000000000 +0330
 +++ workdir/symengine-0.10.1/symengine/symbol.cpp	2023-05-16 18:30:11.586635130 +0330
