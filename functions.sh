@@ -60,6 +60,7 @@ build_all () {
     -DWITH_SYMENGINE_THREAD_SAFE=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_BENCHMARKS=OFF \
+    -DWITH_MPFR=ON \
     -DWITH_SYMENGINE_RCP=ON .. && make "-j$(nproc --all)"
     build_path=$(pwd)
     echo -e "\n\nThe built binaries are at the path below:\n$build_path"
