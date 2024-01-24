@@ -1,9 +1,11 @@
 Only in workdir/symengine-0.10.1: build
 Only in workdir/symengine-0.10.1: cmake-build-debug
+Only in workdir/symengine-0.10.1: cmake-build-release
+Only in workdir/symengine-0.10.1: cmake-build-relwithdebinfo
 Only in workdir/symengine-0.10.1: .idea
 diff -ur workdir/symengine-0.10.1-patched/symengine/basic.h workdir/symengine-0.10.1/symengine/basic.h
---- workdir/symengine-0.10.1-patched/symengine/basic.h	2023-03-23 17:41:51.000000000 +0100
-+++ workdir/symengine-0.10.1/symengine/basic.h	2023-08-26 12:13:39.556619164 +0200
+--- workdir/symengine-0.10.1-patched/symengine/basic.h	2023-03-23 16:41:51.000000000 +0000
++++ workdir/symengine-0.10.1/symengine/basic.h	2024-01-08 15:52:16.164348231 +0000
 @@ -282,7 +282,7 @@
  // Common subexpression elimination of symbolic expressions
  // Return a vector of replacement pairs and a vector of reduced exprs
@@ -14,8 +16,8 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/basic.h workdir/symengine-0.
  /*! This `<<` overloaded function simply calls `p.__str__`, so it allows any
     Basic
 diff -ur workdir/symengine-0.10.1-patched/symengine/cse.cpp workdir/symengine-0.10.1/symengine/cse.cpp
---- workdir/symengine-0.10.1-patched/symengine/cse.cpp	2023-03-23 17:41:51.000000000 +0100
-+++ workdir/symengine-0.10.1/symengine/cse.cpp	2023-08-26 12:23:12.639948963 +0200
+--- workdir/symengine-0.10.1-patched/symengine/cse.cpp	2023-03-23 16:41:51.000000000 +0000
++++ workdir/symengine-0.10.1/symengine/cse.cpp	2024-01-08 15:52:16.167681563 +0000
 @@ -5,12 +5,14 @@
  #include <symengine/visitor.h>
  
@@ -114,35 +116,37 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/cse.cpp workdir/symengine-0.
 +
  } // namespace SymEngine
 diff -ur workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h workdir/symengine-0.10.1/symengine/serialize-cereal.h
---- workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h	2023-03-23 17:41:51.000000000 +0100
-+++ workdir/symengine-0.10.1/symengine/serialize-cereal.h	2023-08-02 14:19:06.306660749 +0200
+--- workdir/symengine-0.10.1-patched/symengine/serialize-cereal.h	2023-03-23 16:41:51.000000000 +0000
++++ workdir/symengine-0.10.1/symengine/serialize-cereal.h	2024-01-24 15:17:08.556925851 +0000
 @@ -41,7 +41,7 @@
  template <class Archive>
  inline void save_basic(Archive &ar, const Symbol &b)
  {
 -    ar(b.__str__());
-+    ar(b.__str__(), b.is_link());
++    ar(b.__str__(), b.is_link(), b.get_local_symbol_index());
  }
  template <class Archive>
  inline void save_basic(Archive &ar, const Mul &b)
-@@ -333,8 +333,11 @@
+@@ -333,8 +333,13 @@
  RCP<const Basic> load_basic(Archive &ar, RCP<const Symbol> &)
  {
      std::string name;
 -    ar(name);
 -    return symbol(name);
 +    bool isLink;
-+    ar(name, isLink);
++    size_t localSymbolIndex;
++    ar(name, isLink, localSymbolIndex);
 +    auto s = symbol(name);
 +    s->set_link_flag(isLink);
++    s->set_local_symbol_index(localSymbolIndex);
 +    return s;
  }
  template <class Archive>
  RCP<const Basic> load_basic(Archive &ar, RCP<const Mul> &)
 diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.cpp workdir/symengine-0.10.1/symengine/symbol.cpp
---- workdir/symengine-0.10.1-patched/symengine/symbol.cpp	2023-03-23 17:41:51.000000000 +0100
-+++ workdir/symengine-0.10.1/symengine/symbol.cpp	2023-08-02 14:19:06.306660749 +0200
-@@ -3,6 +3,14 @@
+--- workdir/symengine-0.10.1-patched/symengine/symbol.cpp	2023-03-23 16:41:51.000000000 +0000
++++ workdir/symengine-0.10.1/symengine/symbol.cpp	2024-01-24 15:17:08.513592518 +0000
+@@ -3,6 +3,22 @@
  
  namespace SymEngine
  {
@@ -154,18 +158,27 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.cpp workdir/symengine
 +void Symbol::set_link_flag(bool flag) const{
 +    isLink = flag;
 +}
++
++size_t Symbol::get_local_symbol_index() const{
++    return localSymbolIndex;
++}
++
++void Symbol::set_local_symbol_index(size_t index) const {
++    localSymbolIndex = index;
++}
  
  Symbol::Symbol(const std::string &name)
      : name_{name} {SYMENGINE_ASSIGN_TYPEID()}
 diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.h workdir/symengine-0.10.1/symengine/symbol.h
---- workdir/symengine-0.10.1-patched/symengine/symbol.h	2023-03-23 17:41:51.000000000 +0100
-+++ workdir/symengine-0.10.1/symengine/symbol.h	2023-08-02 14:19:06.306660749 +0200
-@@ -17,8 +17,16 @@
+--- workdir/symengine-0.10.1-patched/symengine/symbol.h	2023-03-23 16:41:51.000000000 +0000
++++ workdir/symengine-0.10.1/symengine/symbol.h	2024-01-24 15:17:08.596925851 +0000
+@@ -17,8 +17,19 @@
      //! name of Symbol
      std::string name_;
  
 +    //! DeepFusion Patch:
 +    mutable bool isLink=false;
++    mutable size_t localSymbolIndex=0;
 +
  public:
      IMPLEMENT_TYPEID(SYMENGINE_SYMBOL)
@@ -173,6 +186,8 @@ diff -ur workdir/symengine-0.10.1-patched/symengine/symbol.h workdir/symengine-0
 +    //! DeepFusion Patch:
 +    bool is_link() const;
 +    void set_link_flag(bool flag) const;
++    size_t get_local_symbol_index() const;
++    void set_local_symbol_index(size_t index) const;
 +
      //! Symbol Constructor
      explicit Symbol(const std::string &name);
